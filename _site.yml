@@ -1,0 +1,7 @@
+name: "my-website"
+navbar:
+  title: "African indigenous vegetables amino acids"
+  left:
+    - text: "3D PCA plot"
+      href: index.html
+output_dir: "."
