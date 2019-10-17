@@ -1,5 +1,5 @@
 ---
-title: "PCA 3D plot"
+title: "Amino Acids 3D PCA"
 output: html_document
 ---
 
