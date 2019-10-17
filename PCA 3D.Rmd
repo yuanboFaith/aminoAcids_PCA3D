@@ -1,0 +1,125 @@
+---
+title: "PCA 3D plot"
+output: html_document
+---
+
+```{r, warning=F, message=F, echo=F, results='hide'}
+library(tidyverse)
+library(RColorBrewer)
+library(rebus)
+library(readxl)
+library(ComplexHeatmap)
+library(circlize)
+library(ggsci)
+library(plotly)
+library(ggrepel)
+library(gridExtra)
+library(cowplot)
+library(broom)
+
+
+theme_set(theme_bw() + theme(axis.text = element_text(color = "black"),
+                             axis.title = element_text(colour = "black"),
+                             strip.background = element_blank(),
+                             strip.text = element_text(colour = "black",
+                                                       face = "bold")))
+set.seed(2019)
+
+# Read dataset and tidy up
+path = "/Users/Boyuan/Desktop/My publication/7th. HILIC amino acid & PCA/600 samples/600 SAMPLE ALL DATA.xlsx"
+
+df.inj.conc = read_excel(path , sheet = "injected concentration") # read injection concentration dataset
+df.inj.conc %>% duplicated() %>% sum() # checking duplicated rows
+amino.acids = (df.inj.conc %>% colnames())[-c(1:3)] # extract all amino acids analyzed
+
+# Read sample mass and traits dataset
+df.mass = read_excel(path, sheet = "sample mass", range = "A1:V601") 
+# remove missing rows (labels created for non-existing samples)
+df.mass = df.mass %>% filter(`Note4_missing row` != "YES") 
+df.mass = df.mass %>% mutate(`Mass (mg)` = as.numeric(`Mass (mg)`))
+
+
+
+
+# Computate content in sample ----
+df.all.data.tidy =  df.inj.conc %>% left_join(df.mass, by = "Name") %>% # join datasets of content and sample info
+  gather(amino.acids, key = compounds, value = inj.conc) %>% # gather compounds
+  # content in mg / 100 g dry sample
+  # x 100 dil factor x 10 mL, convert to mg cmpd, then normalized by sample mass 
+  mutate(content = inj.conc * (100 * 10) /1000/1000 / `Mass (mg)` * 1000 * 100,
+         Category = factor(Category, levels = c("Nightshade", "Amaranth", "Spider plant", "Mustard"),
+                           ordered = T))
+
+unique.compounds = df.all.data.tidy$compounds %>% unique()
+
+
+
+## Specify Colors ----
+# Manual assignment for category (most important one)
+unique.categories = df.all.data.tidy$Category %>% unique()
+color.category = c("Black", "Steelblue", "Firebrick" , "Darkgreen") 
+names(color.category) = unique.categories
+
+
+df.all.data = df.all.data.tidy %>% 
+  select(Name, Category, Species, Cultivar, Rep,# plant varieties
+         Year,  Harvest, Season, Site, # environment
+         compounds, content) %>% 
+  spread(key = compounds, value = content) # each amino acid, each column
+
+category = df.all.data$Category %>% as.factor() # category as a factor vector
+col.pairs = brewer.pal(n_distinct(category), "Set1") # colors for category
+
+mat.content = df.all.data[, amino.acids] %>% as.matrix() # pure content matrix
+rownames(mat.content) = df.all.data$Category
+
+
+
+
+# Compute PCA -<>--<>--<>--<>--<>--<>--<>--<>--<>--<>--<>----- ----
+mat.content.scaled = mat.content %>% scale(center = T, scale = T)
+
+# Check eigenvalues
+content.scaled.covarianceMatrix = mat.content.scaled %>% var()
+eigen.values = (content.scaled.covarianceMatrix %>% eigen())$values
+
+
+# contribution percentage of the major PC's
+PC1.percent = (eigen.values[1] / eigen.values %>% sum() * 100) %>% round() 
+PC2.percent = (eigen.values[2] / eigen.values %>% sum() * 100) %>% round()
+PC3.percent = (eigen.values[3] / eigen.values %>% sum() * 100) %>% round() 
+
+
+# Check eigenvectors
+eigen.vectors = (mat.content.scaled %>% var() %>% eigen())$vectors
+eigen.vectors = -eigen.vectors
+rownames(eigen.vectors) = colnames(mat.content.scaled) 
+# Recall that eigenvector elements are the coefficients of corresponding original variables 
+
+mat.PC = mat.content.scaled %*% (eigen.vectors)
+df.PC = df.all.data %>% 
+  select(Name, Category, Species, Cultivar, Harvest, Season, Site) %>%
+  cbind(mat.PC[, 1:3]) %>% as_tibble() %>%
+  rename(PC1 = `1`, PC2 = `2`, PC3 = `3`)
+df.PC %>% head(); df.PC %>% tail()
+
+```
+
+
+```{r, warning=F, message=F, echo=F, fig.height=11, fig.width=11}
+# 3D PCA plot
+plot_ly(df.PC, x = ~PC1, y = ~PC2, z = ~PC3, color = ~Category, 
+        colors = color.category) %>%
+  add_markers() %>%
+  layout(
+         scene = list(xaxis = list(title = paste("Standardized PC1, ", PC1.percent, "% contribution"),
+                                   range = c(-6, 5)),
+                      yaxis = list(title = paste("Standardized PC2, ", PC2.percent, "% contribution"),
+                                   range = c(-5, 5)),
+                      zaxis = list(title = paste("Standardized PC3, ", PC3.percent, "% contribution"),
+                                   range = c(-4, 4))
+         )
+  )
+
+```
+
