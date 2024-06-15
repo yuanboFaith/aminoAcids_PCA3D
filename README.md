@@ -1,3 +1,4 @@
+This repository shows the [3D Principal Component Analysis](https://yuanbofaith.github.io/aminoAcids_PCA3D/) (PCA) of amino acid content in African indigenous vegetables (see [original publication](https://www.sciencedirect.com/science/article/abs/pii/S0021967320310074), and the [mother git repository](https://yuanbofaith.github.io/AfricanVegetables_AminoAcids/index.html)).  
 
 The R code has been developed with reference to [R for Data Science (2e)](https://r4ds.hadley.nz/), and the official documentation of [tidyverse](https://www.tidyverse.org/), and [**DataBrewer.co**](https://www.databrewer.co/). See breakdown of modules below:
 
